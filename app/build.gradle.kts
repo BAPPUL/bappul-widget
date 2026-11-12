@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -20,7 +22,7 @@ android {
     // 없으면 이 PC의 기본 디버그 키(~/.android/debug.keystore)를 씀 — 이전 APK를 같은 PC에서 빌드했다면 그대로 덮어쓰기 가능.
     val keystoreFile = rootProject.file("keystore.properties")
     val planner = if (keystoreFile.exists()) {
-        val props = java.util.Properties().apply { keystoreFile.inputStream().use { load(it) } }
+        val props = Properties().apply { keystoreFile.inputStream().use { load(it) } }
         signingConfigs.create("planner") {
             storeFile = rootProject.file(props.getProperty("storeFile"))
             storePassword = props.getProperty("storePassword")
