@@ -171,10 +171,14 @@ class MainActivity : Activity() {
             CommonStatusCodes.DEVELOPER_ERROR -> getString(R.string.err_developer)
             CommonStatusCodes.NETWORK_ERROR -> getString(R.string.err_network)
             CommonStatusCodes.CANCELED -> getString(R.string.err_canceled)
-            null -> getString(R.string.err_generic, e.javaClass.simpleName)
-            else -> getString(R.string.err_generic, "코드 $code")
+            CommonStatusCodes.INTERNAL_ERROR -> getString(R.string.err_internal) + detail(e)
+            null -> getString(R.string.err_generic, e.javaClass.simpleName) + detail(e)
+            else -> getString(R.string.err_generic, "코드 $code") + detail(e)
         }
     }
+
+    /** Google 이 준 오류 설명 (원인 파악용) */
+    private fun detail(e: Exception): String = e.message?.takeIf { it.isNotBlank() }?.let { "\n\n자세한 내용: $it" } ?: ""
 
     private fun confirmDisconnect() {
         AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)

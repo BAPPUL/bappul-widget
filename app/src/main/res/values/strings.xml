@@ -35,6 +35,7 @@
     <string name="disconnect_confirm_message">이 앱에 저장된 일정이 지워지고, 위젯에는 연결 안내만 남아요. Google 캘린더의 일정은 그대로예요.</string>
     <string name="cancel">취소</string>
     <string name="err_developer">Google Cloud에 이 앱의 Android OAuth 클라이언트가 아직 없어요. 아래 \'앱 정보\'의 패키지 이름과 SHA-1로 등록한 뒤 다시 눌러 주세요. (코드 10)</string>
+    <string name="err_internal">Google 연결 중 내부 오류가 났어요 (코드 8). Google Cloud에서 ① Android 클라이언트(패키지 이름·SHA-1) ② 브랜딩(앱 이름·지원 이메일·개발자 연락처) ③ 테스트 사용자를 확인하고, 설정을 바꿨다면 5~10분 뒤 다시 눌러 주세요.</string>
     <string name="err_network">인터넷 연결을 확인해 주세요.</string>
     <string name="err_canceled">연결을 취소했어요.</string>
     <string name="err_scope">캘린더 목록 보기와 일정 보기를 모두 허용해야 해요. 다시 연결을 눌러 두 항목을 체크해 주세요.</string>

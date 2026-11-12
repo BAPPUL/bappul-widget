@@ -14,8 +14,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // 이전 설치본(versionCode 1)을 덮어쓰도록 올림
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
     }
 
     // 서명 키: keystore.properties 가 있으면 그 키로 debug·release 모두 서명 (다른 PC에서 빌드해도 같은 SHA-1).
