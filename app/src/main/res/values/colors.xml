@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 기존 사이트(bappul.kro.kr) 다크 테마와 같은 색 -->
+<resources>
+    <color name="bg">#0D1020</color>
+    <color name="panel">#151A2D</color>
+    <color name="panel_2">#1C2239</color>
+    <color name="ink">#EEF0FB</color>
+    <color name="muted">#9EA5C3</color>
+    <color name="faint">#676E8F</color>
+    <color name="accent">#A3AFFF</color>
+    <color name="accent_ink">#0D1020</color>
+    <color name="coral">#FF6F61</color>
+</resources>

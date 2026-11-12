@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<title>오늘의 생활계획표 위젯 목업</title>
+<!--
+  위젯 목업 생성용 페이지.
+  drawWheel() 은 app/.../WheelRenderer.kt 와 같은 규칙(치수 비율·색·겹침 칸 나누기·제목 생략 조건)으로 그립니다.
+  레이아웃 치수(여백 14dp, 아래 줄 46dp+10dp, 글자 크기 비율)는 widget_planner.xml / WidgetUpdater.kt 와 같습니다.
+  1 CSS px = 1 dp 로 보고, 스크린샷은 deviceScaleFactor 로 확대해서 찍습니다.
+  ?only=preview → 위젯 선택 목록용 미리보기 한 장만 그림
+-->
+<style>
+  :root{--bg:#0D1020;--panel2:#1C2239;--hole:#111527;--ink:#EEF0FB;--muted:#9EA5C3;--faint:#676E8F;--accent:#A3AFFF;--coral:#FF6F61}
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9ebf2;font-family:"Noto Sans CJK KR","Noto Sans KR",sans-serif;color:#151829}
+  .widget{position:relative;width:var(--w);height:var(--h);padding:14px;border-radius:26px;background:var(--bg);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;overflow:hidden}
+  .ring-box{position:relative;flex:1;min-height:0;display:grid;place-items:center}
+  .ring-box canvas{position:absolute;inset:0;margin:auto}
+  .center{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .clock{color:var(--ink);font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+  .date{color:var(--muted);margin-top:4px;line-height:1.25}
+  .stale{margin-top:3px;white-space:nowrap}
+  .allday{color:var(--accent);margin-top:3px;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row{height:46px;margin-top:10px;border-radius:16px;background:var(--panel2);display:flex;align-items:center;padding:0 14px;flex:none}
+  .row .dot{width:10px;height:10px;border-radius:50%;margin-right:8px;flex:none}
+  .row .label{color:var(--muted);font-size:13px;margin-right:6px;flex:none}
+  .row .title{flex:1;min-width:0;color:var(--ink);font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .time{margin-left:10px;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* 홈 화면 목업 */
+  .phone{position:relative;width:412px;height:915px;border-radius:44px;overflow:hidden;
+    background:radial-gradient(120% 70% at 20% 10%,#3b3f8f 0%,transparent 55%),radial-gradient(90% 60% at 90% 80%,#a04a6a 0%,transparent 60%),linear-gradient(160deg,#1b1f4a,#2a1c3d 60%,#151830);
+    box-shadow:0 0 0 10px #111,0 30px 60px -20px rgba(0,0,0,.5)}
+  .status{display:flex;justify-content:space-between;padding:14px 26px 0;color:#fff;font-size:14px;font-weight:600}
+  .home-widget{position:absolute;left:20px;top:64px}
+  .apps{position:absolute;left:206px;right:20px;top:512px;display:grid;grid-template-columns:repeat(2,1fr);gap:20px 0;justify-items:center}
+  .app{display:grid;gap:6px;justify-items:center;color:#fff;font-size:12px}
+  .app i{width:58px;height:58px;border-radius:18px;display:block;background:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
+  .dock{position:absolute;left:20px;right:20px;bottom:28px;display:grid;grid-template-columns:repeat(4,1fr);justify-items:center}
+  .dock i{width:58px;height:58px;border-radius:18px;display:block;background:rgba(255,255,255,.22)}
+  .sheet{display:flex;gap:28px;padding:30px;align-items:flex-start;flex-wrap:wrap}
+  figure{margin:0;display:grid;gap:10px}
+  .widget.small{padding:8px}
+  .widget.small .meta{display:flex;align-items:center;gap:4px;margin-top:4px;line-height:1.2;font-variant-numeric:tabular-nums}
+  .widget.small .meta i{width:6px;height:6px;border-radius:50%;display:block}
+  .widget.small .stitle{margin-top:1px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+  .home-small{position:absolute;left:20px;top:508px}
+  .small-sheet{padding-top:0}
+  figcaption{font-size:15px;font-weight:700}
+  figcaption small{display:block;font-weight:400;color:#5b6182;font-size:13px;margin-top:2px}
+</style>
+<body>
+<div id="out"></div>
+<script>
+const P={BG:'#0D1020',HOLE:'#111527',TRACK:'#1B2038',PAST:'#232A48',TICK:'#4A5175',INK:'#EEF0FB',MUTED:'#9EA5C3',FAINT:'#676E8F',ACCENT:'#A3AFFF',CORAL:'#FF6F61',DARK:'#151829'};
+const NOW=14*60+20;                     // 목업 기준 시각 14:20
+const DATE='11월 12일 목요일';
+const ev=(t,s,e,c)=>({title:t,startMin:s,endMin:e,color:c});
+const hm=(h,m=0)=>h*60+m;
+const FIXED=[ev('아침 운동',hm(6,30),hm(7,30),'#B99AFF'),ev('영상 업로드',hm(20),hm(21),'#D50000')];  // 숨긴 '고정 일정' 캘린더 (위젯에서만 켬)
+const SCENES={
+  google:{state:'NORMAL',allDay:['가족 생일'],events:[ev('수면',0,hm(6,30),'#7986CB'),...FIXED,ev('출근',hm(8,30),hm(9,20),'#8E9BB5'),
+    ev('집중 작업',hm(9,30),hm(12),'#A3AFFF'),ev('점심',hm(12),hm(13),'#F6BF26'),ev('영상 편집',hm(13,30),hm(17),'#E67C73'),
+    ev('저녁',hm(18,30),hm(19,30),'#F4A261'),ev('취침 준비',hm(23),hm(24),'#4FC3F7')]},
+  normal:{state:'NORMAL',allDay:['가족 생일'],events:[
+    ev('수면',0,hm(7),'#7986CB'),ev('아침 운동',hm(7),hm(8),'#33B679'),ev('출근',hm(8,30),hm(9,20),'#8E9BB5'),
+    ev('집중 작업',hm(9,30),hm(12),'#A3AFFF'),ev('점심',hm(12),hm(13),'#F6BF26'),ev('영상 편집',hm(13,30),hm(17),'#E67C73'),
+    ev('저녁',hm(18,30),hm(19,30),'#F4A261'),ev('보컬 녹음',hm(20),hm(22),'#B39DDB'),ev('취침 준비',hm(23),hm(24),'#4FC3F7')]},
+  overlap:{state:'NORMAL',allDay:[],events:[
+    ev('수면',0,hm(7),'#7986CB'),ev('점심',hm(12),hm(13),'#F6BF26'),
+    ev('영상 편집',hm(13),hm(17),'#E67C73'),ev('팀 통화',hm(14),hm(15),'#33B679'),ev('썸네일 회의',hm(14,30),hm(16),'#4FC3F7'),
+    ev('콘티 검토',hm(15,30),hm(15,50),'#F4A261'),ev('저녁',hm(18,30),hm(19,30),'#B39DDB')]},
+  empty:{state:'EMPTY',allDay:[],events:[]},
+  noperm:{state:'NO_PERMISSION',allDay:[],events:[]},
+  connect:{state:'NEEDS_CONNECT',allDay:[],events:[]},
+};
+SCENES.offline={...SCENES.google,stale:'오프라인 · 13:05 기준',staleShort:'13:05 기준',offline:true};
+SCENES.expired={...SCENES.google,alert:'AUTH_EXPIRED'};
+
+/* ── WheelRenderer.kt 와 같은 규칙 ── */
+function layoutLanes(events){
+  const slices=[];let cluster=[],laneEnds=[],clusterEnd=-1;
+  const close=()=>{const n=Math.max(1,laneEnds.length);cluster.forEach(s=>s.lanes=n);cluster=[];laneEnds=[];};
+  for(const e of [...events].sort((a,b)=>a.startMin-b.startMin)){
+    if(e.startMin>=clusterEnd)close();
+    let lane=laneEnds.findIndex(x=>x<=e.startMin);
+    if(lane<0){lane=laneEnds.length;laneEnds.push(e.endMin);}else laneEnds[lane]=e.endMin;
+    clusterEnd=Math.max(clusterEnd,e.endMin);
+    const s={e,lane};cluster.push(s);slices.push(s);
+  }
+  close();return slices;
+}
+const m2deg=m=>m/1440*360-90, rad=d=>d/180*Math.PI;
+function blend(a,b,t){const x=parseInt(a.slice(1),16),y=parseInt(b.slice(1),16);return '#'+[16,8,0].map(s=>Math.round(((x>>s)&255)*(1-t)+((y>>s)&255)*t).toString(16).padStart(2,'0')).join('');}
+function textOn(hex){const n=parseInt(hex.slice(1),16),l=.299*(n>>16)+.587*(n>>8&255)+.114*(n&255);return l>150?P.DARK:'#FFFFFF';}
+function sector(c,ri,ro,sDeg,sweep){sweep=Math.max(.1,sweep);c.beginPath();c.arc(0,0,ro,rad(sDeg),rad(sDeg+sweep));c.arc(0,0,ri,rad(sDeg+sweep),rad(sDeg),true);c.closePath();}
+function fitsBox(cx,cy,w,h,inner,outer,start,span,d){
+  const pad=4*d;
+  for(const dx of [-.5,0,.5])for(const dy of [-.5,0,.5]){
+    if(!dx&&!dy)continue;
+    const x=cx+dx*w,y=cy+dy*h,r=Math.hypot(x,y);
+    if(r<inner+pad||r>outer-pad)return false;
+    let rel=(Math.atan2(y,x)-start)%(2*Math.PI);if(rel<0)rel+=2*Math.PI;
+    const ap=pad/r;if(rel<ap||rel>span-ap)return false;
+  }
+  return true;
+}
+function geometry(size,d,compact){const labelSpace=(compact?7:17)*d,outer=size/2-labelSpace,thickness=outer*(compact?.30:.34),inner=outer-thickness;return {outer,thickness,inner,holeRadius:inner-3*d,dotRadius:outer+(compact?3.5:5)*d};}
+function drawWheel(canvas,sizePx,d,scene,compact=false){
+  canvas.width=canvas.height=sizePx;const c=canvas.getContext('2d');
+  const g=geometry(sizePx,d,compact);c.translate(sizePx/2,sizePx/2);
+  const disabled=['NO_PERMISSION','NO_CALENDAR','NEEDS_CONNECT','NO_DATA'].includes(scene.state);
+  c.fillStyle=P.TRACK;c.beginPath();c.arc(0,0,g.outer,0,2*Math.PI);c.arc(0,0,g.inner,0,2*Math.PI,true);c.fill();
+  c.fillStyle=P.PAST;sector(c,g.inner,g.outer,m2deg(0),NOW/1440*360);c.fill();
+  if(disabled){c.save();c.strokeStyle=P.FAINT;c.globalAlpha=150/255;c.lineWidth=1.5*d;c.setLineDash([4*d,5*d]);c.beginPath();c.arc(0,0,(g.inner+g.outer)/2,0,2*Math.PI);c.stroke();c.restore();}
+  const fs=Math.min(14*d,Math.max(10*d,sizePx*.038));
+  c.font=`700 ${fs}px "Noto Sans CJK KR",sans-serif`;c.textAlign='center';c.textBaseline='middle';
+  for(const s of layoutLanes(scene.events)){
+    const e=s.e,band=g.thickness/s.lanes,o=g.outer-s.lane*band,i=o-band;
+    const sd=m2deg(e.startMin),sweep=(e.endMin-e.startMin)/1440*360,inset=(compact?1.2:1.6)*d;
+    const ga=Math.min(inset/i/Math.PI*180,sweep/4);
+    const faded=e.endMin<=NOW, color=faded?blend(e.color,P.PAST,.5):e.color;
+    sector(c,i+inset,o-inset,sd+ga,sweep-2*ga);
+    c.fillStyle=color;c.strokeStyle=color;c.lineWidth=2.2*d;c.lineJoin='round';c.fill();c.stroke();
+    const r=(i+o)/2,midDeg=sd+sweep/2,mid=rad(midDeg),x=Math.cos(mid)*r,y=Math.sin(mid)*r;
+    if(compact)continue;
+    const w=c.measureText(e.title).width+4*d,h=fs*1.25,pad=4*d;
+    c.globalAlpha=faded?210/255:1;c.fillStyle=textOn(color);
+    if(fitsBox(x,y,w,h,i,o,rad(sd),rad(sweep),d))c.fillText(e.title,x,y+fs*.04);
+    else if(band>=h+2*pad&&(r-h/2)*rad(sweep)>=w+2*pad){
+      c.save();c.translate(x,y);c.rotate(rad(Math.sin(mid)>0?midDeg-90:midDeg+90));c.fillText(e.title,0,fs*.04);c.restore();
+    }
+    c.globalAlpha=1;
+  }
+  c.font=`700 ${10.5*d}px "Noto Sans CJK KR",sans-serif`;
+  for(let h=0;h<24;h++){
+    if(compact&&h%3)continue;
+    const a=rad(m2deg(h*60)),major=h%6===0,dr=g.dotRadius;
+    c.fillStyle=major?P.MUTED:P.TICK;c.beginPath();c.arc(Math.cos(a)*dr,Math.sin(a)*dr,(major?1.8:1)*d,0,2*Math.PI);c.fill();
+    if(major&&!compact){const lr=g.outer+12.5*d;c.fillStyle=P.MUTED;c.fillText(String(h),Math.cos(a)*lr,Math.sin(a)*lr+.5*d);}
+  }
+  const a=rad(m2deg(NOW)),cx=Math.cos(a),cy=Math.sin(a),tip=g.dotRadius;
+  c.strokeStyle=P.CORAL;c.lineWidth=2.6*d;c.lineCap='round';c.beginPath();c.moveTo(cx*(g.inner-d),cy*(g.inner-d));c.lineTo(cx*tip,cy*tip);c.stroke();
+  c.fillStyle=P.CORAL;c.beginPath();c.arc(cx*tip,cy*tip,(compact?3:3.6)*d,0,2*Math.PI);c.fill();
+  c.fillStyle=P.BG;c.beginPath();c.arc(cx*tip,cy*tip,1.4*d,0,2*Math.PI);c.fill();
+  c.fillStyle=P.HOLE;c.beginPath();c.arc(0,0,g.holeRadius,0,2*Math.PI);c.fill();
+  return g;
+}
+const fmt=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+/* WidgetUpdater.buildViews() 와 같은 배치 */
+function widget(scene,w,h,scale){
+  const el=document.createElement('div');el.className='widget';el.style.setProperty('--w',w+'px');el.style.setProperty('--h',h+'px');
+  const ringDp=Math.max(150,Math.min(440,Math.min(w-28,h-28-56)));
+  const ringPx=Math.round(ringDp*scale);
+  const box=document.createElement('div');box.className='ring-box';
+  const cv=document.createElement('canvas');cv.style.width=cv.style.height=ringDp+'px';
+  const g=drawWheel(cv,ringPx,scale,scene);
+  const hole=g.holeRadius*2/scale;
+  const center=document.createElement('div');center.className='center';
+  const clk=document.createElement('div');clk.className='clock';clk.textContent=fmt(NOW);clk.style.fontSize=Math.min(64,Math.max(30,hole*.29))+'px';
+  const dt=document.createElement('div');dt.className='date';dt.textContent=DATE;dt.style.fontSize=Math.min(15,Math.max(11,hole*.082))+'px';
+  center.append(clk,dt);
+  const addStale=(text,size)=>{if(!text)return;const st=document.createElement('div');st.className='stale';st.textContent=text;st.style.fontSize=size+'px';st.style.color=scene.offline?P.MUTED:P.FAINT;center.append(st);};
+  if(scene.allDay.length&&scene.state==='NORMAL'){const ad=document.createElement('div');ad.className='allday';ad.style.fontSize=Math.min(13,Math.max(10,hole*.07))+'px';ad.textContent='종일 · '+scene.allDay[0]+(scene.allDay.length>1?` 외 ${scene.allDay.length-1}`:'');center.append(ad);}
+  addStale(scene.stale,Math.min(12,Math.max(10,hole*.066)));
+  box.append(cv,center);
+  const row=document.createElement('div');row.className='row';
+  const next=scene.events.filter(e=>e.startMin>NOW).sort((a,b)=>a.startMin-b.startMin)[0];
+  const add=(cls,text,color)=>{const s=document.createElement('span');s.className=cls;if(text!=null)s.textContent=text;if(color)s.style.color=color;row.append(s);return s;};
+  if(scene.alert==='AUTH_EXPIRED'){add('title','Google 연결이 만료됐어요');add('time','다시 연결',P.CORAL);}
+  else if(scene.state==='NEEDS_CONNECT'){add('title','Google 계정을 연결해 주세요');add('time','연결',P.ACCENT);}
+  else if(scene.state==='NO_PERMISSION'){add('title','캘린더 권한이 필요해요');add('time','허용하기',P.CORAL);}
+  else if(scene.state==='NO_CALENDAR'){add('title','표시할 캘린더를 골라 주세요');add('time','설정',P.ACCENT);}
+  else if(next){add('dot').style.background=next.color;add('label','다음');add('title',next.title);add('time',fmt(next.startMin));}
+  else{add('title',scene.state==='EMPTY'?'오늘은 일정이 없어요':'오늘 남은 일정이 없어요',P.MUTED);add('time','');}
+  el.append(box,row);return el;
+}
+/* WidgetUpdater.buildSmallViews() 와 같은 배치 */
+function widgetSmall(scene,w,h,scale){
+  const el=document.createElement('div');el.className='widget small';el.style.setProperty('--w',w+'px');el.style.setProperty('--h',h+'px');
+  const ringDp=Math.max(100,Math.min(320,Math.min(w-16,h-16)));
+  const box=document.createElement('div');box.className='ring-box';
+  const cv=document.createElement('canvas');cv.style.width=cv.style.height=ringDp+'px';
+  const g=drawWheel(cv,Math.round(ringDp*scale),scale,scene,true);
+  const hole=g.holeRadius*2/scale, small=Math.min(14,Math.max(10,hole*.115));
+  const center=document.createElement('div');center.className='center';
+  const clk=document.createElement('div');clk.className='clock';clk.textContent=fmt(NOW);clk.style.fontSize=Math.min(44,Math.max(20,hole*.27))+'px';
+  const meta=document.createElement('div');meta.className='meta';meta.style.fontSize=small+'px';
+  const title=document.createElement('div');title.className='stitle';title.style.fontSize=(small+2)+'px';title.style.maxWidth=hole*.78+'px';
+  const next=scene.events.filter(e=>e.startMin>NOW).sort((a,b)=>a.startMin-b.startMin)[0];
+  const set=(top,topColor,bottom,bottomColor,dot)=>{
+    if(dot){const i=document.createElement('i');i.style.background=dot;meta.append(i);}
+    meta.append(top);meta.style.color=topColor;if(!top)meta.style.display='none';
+    title.textContent=bottom;title.style.color=bottomColor;
+  };
+  if(scene.alert==='AUTH_EXPIRED')set('연결 만료',P.CORAL,'다시 연결',P.INK);
+  else if(scene.state==='NEEDS_CONNECT')set('Google 연결',P.ACCENT,'눌러서 연결',P.MUTED);
+  else if(scene.state==='NO_PERMISSION')set('권한 필요',P.CORAL,'눌러서 허용',P.MUTED);
+  else if(scene.state==='NO_CALENDAR')set('캘린더 선택',P.ACCENT,'눌러서 설정',P.MUTED);
+  else if(next)set('다음 · '+fmt(next.startMin),P.MUTED,next.title,P.INK,next.color);
+  else set('',P.MUTED,scene.state==='EMPTY'?'일정 없음':'남은 일정 없음',P.MUTED);
+  center.append(clk,meta,title);
+  if(scene.staleShort){const st=document.createElement('div');st.className='stale';st.textContent=scene.staleShort;st.style.fontSize=Math.max(9,small-1)+'px';st.style.color=scene.offline?P.MUTED:P.FAINT;st.style.marginTop='1px';center.append(st);}
+  box.append(cv,center);el.append(box);return el;
+}
+const W=372,H=420,S=devicePixelRatio,SW=172,SH=180;
+const out=document.getElementById('out');
+const only=new URLSearchParams(location.search).get('only');
+if(only==='preview-small'){
+  document.body.style.background='transparent';
+  out.append(widgetSmall(SCENES.google,SW,SH,S));
+}else if(only==='preview'){
+  document.body.style.background='transparent';
+  out.append(widget(SCENES.google,W,H,S));
+}else if(only==='phone'){
+  document.body.style.background='#e9ebf2';document.body.style.padding='30px';
+  const ph=document.createElement('div');ph.className='phone';
+  ph.innerHTML='<div class="status"><span>14:20</span><span>5G ▮▮▮ 87%</span></div>';
+  const hw=widget(SCENES.google,W,H,S);hw.classList.add('home-widget');ph.append(hw);
+  const sw=widgetSmall(SCENES.google,SW,SH,S);sw.classList.add('home-small');ph.append(sw);
+  const apps=document.createElement('div');apps.className='apps';
+  apps.innerHTML=['캘린더','카메라','갤러리','유튜브'].map(n=>`<div class="app"><i></i>${n}</div>`).join('');
+  const dock=document.createElement('div');dock.className='dock';dock.innerHTML='<i></i><i></i><i></i><i></i>';
+  ph.append(apps,dock);out.append(ph);
+}else{
+  const sheet=document.createElement('div');sheet.className='sheet';
+  for(const [key,cap,sub] of [['google','평소','숨긴 ‘고정 일정’을 위젯에서만 켬 (아침 운동·영상 업로드)'],['offline','인터넷 끊김','같은 계정의 마지막 일정 + 받은 시각'],['expired','연결 만료','마지막 일정 유지 · 누르면 앱에서 다시 연결'],['connect','계정 연결 전','점선 링 · 누르면 앱']]){
+    const f=document.createElement('figure');f.innerHTML=`<figcaption>${cap}<small>${sub}</small></figcaption>`;
+    f.append(widget(SCENES[key],W,H,S));sheet.append(f);
+  }
+  out.append(sheet);
+  const sheet2=document.createElement('div');sheet2.className='sheet small-sheet';
+  for(const [key,cap] of [['google','2×2 · 평소'],['offline','2×2 · 인터넷 끊김'],['expired','2×2 · 연결 만료'],['connect','2×2 · 연결 전']]){
+    const f=document.createElement('figure');f.innerHTML=`<figcaption>${cap}</figcaption>`;
+    f.append(widgetSmall(SCENES[key],SW,SH,S));sheet2.append(f);
+  }
+  out.append(sheet2);
+}
+</script>
+</body>
+</html>

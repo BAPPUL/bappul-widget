@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2×2 칸. 크기 조절 가능. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:minResizeWidth="100dp"
+    android:minResizeHeight="100dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_planner_small"
+    android:previewImage="@drawable/widget_preview_small"
+    android:description="@string/widget_small_description"
+    android:configure="kr.kro.bappul.planner.MainActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Planner" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:textColorPrimary">@color/ink</item>
+        <item name="android:textColorSecondary">@color/muted</item>
+    </style>
+    <style name="PlannerButton" parent="android:Widget.Material.Button.Borderless">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:background">@drawable/button_secondary</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:layout_marginTop">10dp</item>
+    </style>
+    <style name="SectionTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:textColor">@color/muted</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

@@ -1,0 +1,72 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 위젯 전용 서명 키 (GitHub Secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD).
+      # 매번 같은 키로 서명해서 덮어쓰기 설치·Google OAuth SHA-1 이 유지됨. 키가 없으면 컴파일 확인만 하고 배포하지 않음.
+      - name: Signing key
+        id: sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::warning::서명 키 Secret 이 없어 임시 디버그 키로 빌드만 확인해요 (배포 안 함)"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$KEYSTORE_BASE64" | tr -d ' \n\r' | base64 -d > "$RUNNER_TEMP/planner-release.jks"
+            printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=planner\nkeyPassword=%s\n' "$RUNNER_TEMP/planner-release.jks" "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Unit tests and APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Signing fingerprint
+        run: |
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | tee signing.txt
+
+      - name: Name APK
+        id: name
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          FILE="bappul-widget-v${VERSION}-build${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$FILE"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.file }}
+          path: ${{ steps.name.outputs.file }}
+
+      - name: Release (휴대폰에서 받기용)
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.name.outputs.version }}-build${{ github.run_number }}" "${{ steps.name.outputs.file }}" \
+            --title "생활계획표 위젯 v${{ steps.name.outputs.version }} (build ${{ github.run_number }})" \
+            --notes-file signing.txt

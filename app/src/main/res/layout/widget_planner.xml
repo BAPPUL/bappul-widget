@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4×4 위젯: 원형 시간표(비트맵) + 가운데 시스템 시계(TextClock) + 아래 다음 일정 한 줄 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:clipToOutline="true"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="fitCenter" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <TextClock
+                    android:id="@+id/clock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:format12Hour="h:mm"
+                    android:format24Hour="HH:mm"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.02"
+                    android:textColor="@color/ink"
+                    android:textSize="46dp"
+                    android:textStyle="bold" />
+
+                <TextClock
+                    android:id="@+id/date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:format12Hour="a · M월 d일 E"
+                    android:format24Hour="M월 d일 E요일"
+                    android:textColor="@color/muted"
+                    android:textSize="13dp" />
+
+                <TextView
+                    android:id="@+id/all_day"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:ellipsize="end"
+                    android:maxWidth="130dp"
+                    android:maxLines="1"
+                    android:textColor="@color/accent"
+                    android:textSize="11dp"
+                    android:visibility="gone" />
+
+                <!-- 오프라인·오래된 데이터: "오프라인 · 21:10 기준" -->
+                <TextView
+                    android:id="@+id/stale"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:maxLines="1"
+                    android:textColor="@color/faint"
+                    android:textSize="11dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/row_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp">
+
+            <ImageView
+                android:id="@+id/next_dot"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:layout_marginEnd="8dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/dot" />
+
+            <TextView
+                android:id="@+id/next_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:text="@string/next_label"
+                android:textColor="@color/muted"
+                android:textSize="13dp" />
+
+            <TextView
+                android:id="@+id/next_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/loading"
+                android:textColor="@color/ink"
+                android:textSize="15dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/next_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:fontFeatureSettings="tnum"
+                android:maxLines="1"
+                android:textColor="@color/ink"
+                android:textSize="15dp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>
