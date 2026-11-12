@@ -1,10 +1,11 @@
 package kr.kro.bappul.planner
 
-import com.sun.net.httpserver.HttpServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.net.InetSocketAddress
+import java.net.InetAddress
+import java.net.ServerSocket
+import kotlin.concurrent.thread
 import java.net.URLDecoder
 import java.time.LocalDate
 import java.time.ZoneId
@@ -17,23 +18,40 @@ class GoogleApiTest {
     private val zone = ZoneId.of("Asia/Seoul")
     private val today = LocalDate.of(2026, 11, 12)
 
+    /** 아주 작은 HTTP 서버 (Android 단위 테스트 환경에는 com.sun.net.httpserver 가 없어 소켓으로 직접 구현) */
     private fun <T> withServer(handler: (path: String, query: Map<String, String>, auth: String?) -> Pair<Int, String>, block: () -> T): T {
-        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/") { ex ->
-            val raw = ex.requestURI.rawQuery ?: ""
-            val q = raw.split("&").filter { it.isNotEmpty() }.associate {
-                val (k, v) = (it.split("=", limit = 2) + "").take(2)
-                k to URLDecoder.decode(v, "UTF-8")
+        val server = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
+        val worker = thread(isDaemon = true) {
+            while (!server.isClosed) {
+                val socket = try { server.accept() } catch (e: Exception) { break }
+                socket.use { sock ->
+                    val reader = sock.getInputStream().bufferedReader(Charsets.UTF_8)
+                    val requestLine = reader.readLine() ?: return@use
+                    var auth: String? = null
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (line.isEmpty()) break
+                        if (line.startsWith("Authorization:", ignoreCase = true)) auth = line.substringAfter(":").trim()
+                    }
+                    val target = requestLine.split(" ")[1]
+                    val path = target.substringBefore("?")
+                    val raw = target.substringAfter("?", "")
+                    val q = raw.split("&").filter { it.isNotEmpty() }.associate {
+                        val parts = it.split("=", limit = 2)
+                        parts[0] to URLDecoder.decode(parts.getOrElse(1) { "" }, "UTF-8")
+                    }
+                    val (code, body) = handler(path, q, auth)
+                    val bytes = body.toByteArray(Charsets.UTF_8)
+                    val out = sock.getOutputStream()
+                    out.write(("HTTP/1.1 $code X\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    out.write(bytes)
+                    out.flush()
+                }
             }
-            val (code, body) = handler(ex.requestURI.rawPath, q, ex.requestHeaders.getFirst("Authorization"))
-            val bytes = body.toByteArray(Charsets.UTF_8)
-            ex.sendResponseHeaders(code, bytes.size.toLong())
-            ex.responseBody.use { it.write(bytes) }
         }
-        server.start()
         val old = GoogleApi.base
-        GoogleApi.base = "http://127.0.0.1:${server.address.port}/calendar/v3"
-        try { return block() } finally { GoogleApi.base = old; server.stop(0) }
+        GoogleApi.base = "http://127.0.0.1:${server.localPort}/calendar/v3"
+        try { return block() } finally { GoogleApi.base = old; server.close(); worker.join(2000) }
     }
 
     @Test fun fetchesHiddenCalendarEventsWithPaging() {
