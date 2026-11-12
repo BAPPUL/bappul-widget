@@ -87,6 +87,14 @@ v0.2.0부터 휴대폰 캘린더 대신 **Google Calendar API**에서 일정을 
 
 > 웹사이트 배포는 이 작업에 필요하지 않습니다.
 
+## 클라우드 빌드 (GitHub Actions) — 추천
+- `main`에 올리면 `.github/workflows/build.yml`이 단위 테스트와 APK 빌드를 하고, **Releases**에 `bappul-widget-v<버전>-build<번호>.apk`를 올립니다.
+- 휴대폰에서 https://github.com/BAPPUL/bappul-widget/releases 를 열어 최신 APK를 받으면 됩니다(GitHub 로그인 필요).
+- 서명은 위젯 전용 키로 합니다. GitHub Secrets `KEYSTORE_BASE64`(키 파일 base64)와 `KEYSTORE_PASSWORD`를 쓰고, 별칭은 `planner`입니다. 매번 같은 키라 다음 업데이트부터는 덮어쓰기 설치가 됩니다.
+  - 서명 SHA-1: `93:47:CA:71:D6:96:2A:6F:BC:4B:86:BE:CE:46:6E:92:62:A0:A0:67` → Google Cloud의 Android OAuth 클라이언트에 이 값을 넣습니다.
+  - Secret이 없으면 임시 키로 컴파일만 확인하고 릴리스는 만들지 않습니다.
+- 처음 이 키로 설치할 때는 이전 v0.1(다른 키) 앱을 지운 뒤 설치해야 합니다.
+
 ## 빌드
 준비물: JDK 17 이상, Android SDK 35(Android Studio 설치 시 함께), 인터넷.
 
